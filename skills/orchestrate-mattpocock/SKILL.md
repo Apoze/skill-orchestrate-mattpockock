@@ -36,6 +36,7 @@ Require the installed `$implement` skill and these Codex App tools, or their
 current equivalents:
 
 - `codex_app__list_projects`
+- `codex_app__list_threads`
 - `codex_app__create_thread`
 - `codex_app__wait_threads`
 - `codex_app__read_thread`
@@ -50,6 +51,9 @@ Use `codex_app__list_projects` to resolve the current project. Match its
 canonical working directory and host; ask the user only if more than one match
 remains. Every child uses this project with `environment.type: local`, so
 sequential tickets share the same checkout.
+
+Resolve the project immediately before each launch. Do not persist a
+`projectId` in repository files: App project identifiers may become stale.
 
 ## 3. Route and launch one ticket
 
@@ -87,6 +91,14 @@ Use FAILED when implementation or validation failed.
 Title the thread `Implement <identifier> — <title>`. Record its thread and host
 identifiers in the relay conversation before waiting. Never create a second
 thread for a ticket already recorded as active or complete.
+
+If creation times out, returns an App error, or does not return an identifier,
+reconcile once before reporting failure: list recent threads on the current
+host, then read candidates in the current working directory whose initial
+prompt contains the exact ticket reference and this relay's source thread.
+Resume the single match. If there is no match or more than one, stop and report
+the ambiguity; never retry creation blindly. A title or later App error must
+not discard an already recorded child identifier.
 
 ## 4. Relay the terminal result
 
