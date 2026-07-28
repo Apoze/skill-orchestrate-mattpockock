@@ -32,8 +32,8 @@ ticket has a resolvable reference and every blocking edge names a known ticket.
 
 ## 2. Require the execution surface
 
-Require the installed `$implement` skill and these Codex App tools, or their
-current equivalents:
+Require the installed `$implement`, `$ponytail`, and `$code-structure` skills
+and these Codex App tools, or their current equivalents:
 
 - `codex_app__list_projects`
 - `codex_app__list_threads`
@@ -42,10 +42,12 @@ current equivalents:
 - `codex_app__read_thread`
 - `codex_app__set_thread_title`
 
-Return `IMPLEMENT_UNAVAILABLE` when `$implement` is absent. Return
-`APP_THREADS_UNAVAILABLE` when the App thread surface is absent. Use that
-surface directly: this relay has no plugin MCP, collaboration subagent, or
-`codex exec` execution branch.
+Discover skills from the project first, including `.agents/skills`, then from
+the user's global installation. Global installation is not required. Return
+`REQUIRED_SKILLS_UNAVAILABLE` with the missing names when any required skill is
+absent. Return `APP_THREADS_UNAVAILABLE` when the App thread surface is absent.
+Use that surface directly: this relay has no plugin MCP, collaboration
+subagent, or `codex exec` execution branch.
 
 Use `codex_app__list_projects` to resolve the current project. Match its
 canonical working directory and host; ask the user only if more than one match
@@ -76,6 +78,12 @@ Use $implement to implement only this ticket:
 <absolute ticket path or issue URL>
 
 Follow the ticket, its linked spec, and the normal $implement workflow.
+You must also invoke and follow $ponytail throughout the implementation.
+You must invoke and follow $code-structure before deciding whether this ticket
+should introduce or refactor shared operational logic. Apply it only where
+appropriate; do not create an abstraction when its own rules say not to.
+If any required skill cannot be loaded, return BLOCKED.
+
 Finish with exactly one terminal block:
 
 IMPLEMENT_RESULT: PASS | BLOCKED | FAILED
