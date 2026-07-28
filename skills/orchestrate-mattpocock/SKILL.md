@@ -106,6 +106,14 @@ Wait with `codex_app__wait_threads`; use its cursor for subsequent waits.
 When the child completes, read its latest final answer with
 `codex_app__read_thread`.
 
+Treat `No Codex thread found` during wait or read as a transient host-binding
+error, not as a ticket result. Retry `read_thread` once without `hostId`; if it
+still fails, list recent threads and rebind the exact thread identifier, or the
+single candidate matching the working directory, source thread, and ticket
+reference. Retry this recovery at most three consecutive times. Stop only when
+all attempts fail, and never launch the next ticket while the result is
+unknown.
+
 Accept a ticket only when the terminal block is unique and all of these hold:
 
 - `IMPLEMENT_RESULT` is exactly `PASS`;
@@ -115,8 +123,8 @@ Accept a ticket only when the terminal block is unique and all of these hold:
 On acceptance, record the commit in the relay conversation, recompute the
 frontier from the recorded results, and launch the next ticket.
 
-On `BLOCKED`, `FAILED`, a needs-attention state, an invalid block, or an App
-error, stop the relay. Report the ticket, terminal result, and
+On `BLOCKED`, `FAILED`, a needs-attention state, an invalid block, or an
+unrecovered App error, stop the relay. Report the ticket, terminal result, and
 `codex://threads/<thread-id>`. Perform no independent verification or repair.
 
 When the user invokes the relay again in the same conversation, resume the
