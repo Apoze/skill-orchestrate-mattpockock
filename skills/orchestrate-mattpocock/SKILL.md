@@ -43,11 +43,12 @@ and these Codex App tools, or their current equivalents:
 - `codex_app__set_thread_title`
 
 Discover skills from the project first, including `.agents/skills`, then from
-the user's global installation. Global installation is not required. Return
-`REQUIRED_SKILLS_UNAVAILABLE` with the missing names when any required skill is
-absent. Return `APP_THREADS_UNAVAILABLE` when the App thread surface is absent.
-Use that surface directly: this relay has no plugin MCP, collaboration
-subagent, or `codex exec` execution branch.
+the user's global installation. Record each resolved absolute `SKILL.md` path;
+global installation is not required. Return `REQUIRED_SKILLS_UNAVAILABLE` with
+the missing names when any required skill is absent. Return
+`APP_THREADS_UNAVAILABLE` when the App thread surface is absent. Use that
+surface directly: this relay has no plugin MCP, collaboration subagent, or
+`codex exec` execution branch.
 
 Use `codex_app__list_projects` to resolve the current project. Match its
 canonical working directory and host; ask the user only if more than one match
@@ -70,18 +71,27 @@ Pass the effort as `thinking` to `codex_app__create_thread`. Preserve the
 configured model by omitting `model`.
 
 Create one top-level thread with this initial prompt, substituting the exact
-ticket values:
+ticket values and resolved skill paths. Keep the explicit skill-link syntax
+produced by the Codex skill picker; do not replace it with `/implement` or a
+natural-language request:
 
 ```text
-Use $implement to implement only this ticket:
+[$implement](<absolute implement SKILL.md path>) ticket <ticket identifier>
+
+Implement only this ticket:
 <ticket identifier> — <ticket title>
 <absolute ticket path or issue URL>
 
-Follow the ticket, its linked spec, and the normal $implement workflow.
-You must also invoke and follow $ponytail throughout the implementation.
-You must invoke and follow $code-structure before deciding whether this ticket
-should introduce or refactor shared operational logic. Apply it only where
-appropriate; do not create an abstraction when its own rules say not to.
+Follow the ticket, its linked spec, and the normal implement workflow.
+
+Mandatory supporting skills:
+[$ponytail](<absolute ponytail SKILL.md path>)
+[$code-structure](<absolute code-structure SKILL.md path>)
+
+Follow ponytail throughout the implementation. Apply code-structure before
+deciding whether this ticket should introduce or refactor shared operational
+logic. Apply it only where appropriate; do not create an abstraction when its
+own rules say not to.
 If any required skill cannot be loaded, return BLOCKED.
 
 Finish with exactly one terminal block:
