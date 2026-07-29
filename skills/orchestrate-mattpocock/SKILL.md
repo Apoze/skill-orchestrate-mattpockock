@@ -117,13 +117,19 @@ read candidates in the current working directory whose initial prompt contains
 the exact ticket reference and this relay's source thread. Repeat when no match
 is visible because App thread creation may appear after the error response.
 Resume the single match. If there is still no match after three observations,
-or more than one match at any point, stop and report the ambiguity. A title or
-later App error must not discard an already recorded child identifier.
+wait three minutes without creating anything, then reconcile once more. Stop
+only if that final observation has no match, or if more than one match appears.
+A title or later App error must not discard an already recorded child
+identifier.
 
 ## 4. Relay the terminal result
 
-Wait with `codex_app__wait_threads`; use its cursor for subsequent waits.
-When the child completes, read its latest final answer with
+Wait with `codex_app__wait_threads` using a three-minute timeout and its cursor
+for subsequent waits. While the child is active, inspect only the compact
+thread/turn status returned by `wait_threads`; ignore commentary, emit no
+progress summaries, and do not call `read_thread`. On timeout, wait again.
+Never end the relay turn while the recorded child is active. When the child
+completes or needs attention, read only its latest final answer with
 `codex_app__read_thread`.
 
 Treat `No Codex thread found` during wait or read as a transient host-binding
