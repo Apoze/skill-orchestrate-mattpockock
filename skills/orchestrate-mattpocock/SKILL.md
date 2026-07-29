@@ -111,12 +111,14 @@ identifiers in the relay conversation before waiting. Never create a second
 thread for a ticket already recorded as active or complete.
 
 If creation times out, returns an App error, or does not return an identifier,
-reconcile once before reporting failure: list recent threads on the current
-host, then read candidates in the current working directory whose initial
-prompt contains the exact ticket reference and this relay's source thread.
-Resume the single match. If there is no match or more than one, stop and report
-the ambiguity; never retry creation blindly. A title or later App error must
-not discard an already recorded child identifier.
+treat the outcome as uncertain and never retry creation. Reconcile for up to
+three consecutive observations: list recent threads on the current host, then
+read candidates in the current working directory whose initial prompt contains
+the exact ticket reference and this relay's source thread. Repeat when no match
+is visible because App thread creation may appear after the error response.
+Resume the single match. If there is still no match after three observations,
+or more than one match at any point, stop and report the ambiguity. A title or
+later App error must not discard an already recorded child identifier.
 
 ## 4. Relay the terminal result
 
