@@ -10,13 +10,28 @@ thread, one trusted terminal result.
 
 ## 1. Build the queue
 
-1. Read `docs/agents/issue-tracker.md`.
+1. Read the repository-root `AGENTS.md` or `CLAUDE.md`, then
+   `docs/agents/issue-tracker.md`. Treat these files as the authority for the
+   tracker kind and target.
 2. Resolve the ticket set from the user's argument, the current `/to-tickets`
    context, or the single unambiguous ready set:
-   - local tracker: read the ticket files under
-     `.scratch/<feature>/issues/`;
-   - configured remote tracker: use its documented read-only listing commands.
-3. Record each ticket's identifier, title, full file path or issue URL, status,
+   - use `.scratch/<feature>/issues/` only when the tracker document explicitly
+     configures local Markdown;
+   - for GitHub, resolve the exact `owner/repo` from an explicit ticket URL or
+     repository named in the user context, `AGENTS.md`, `CLAUDE.md`, or the
+     tracker document. Otherwise inspect Git remotes, preferring
+     `remote.pushDefault`, then a branch `pushRemote`, then `origin`, then the
+     sole GitHub remote. Ask when multiple candidates remain;
+   - pass `--repo <owner/repo>` to every `gh issue` or `gh api` read. Never rely
+     on `gh`'s default repository or on `gh repo view` without `--repo`: a fork
+     may track an upstream remote whose issue list is unrelated;
+   - list the configured GitHub repository's ready issues and resolve child
+     ticket groups from their `Parent` references or native sub-issue links.
+     Do not include a referenced parent spec as an implementation ticket. If
+     exactly one ready child group exists, use it; ask when groups are
+     ambiguous. Use `Blocked by` references or native dependencies for edges.
+3. Record each ticket's identifier, title, full file path or canonical issue
+   URL, status,
    and blocking edges.
 4. Treat only tickets explicitly closed/done, tickets completed by this relay,
    and tickets the user explicitly says are complete as complete. Inspect no
@@ -29,6 +44,8 @@ supplies a starting ticket, accept their stated progress and begin there.
 
 Show the detected count and ordered queue. Continue only when every selected
 ticket has a resolvable reference and every blocking edge names a known ticket.
+Report an empty queue only after querying the explicitly resolved tracker
+target and accounting for its ready child tickets.
 
 ## 2. Require the execution surface
 
