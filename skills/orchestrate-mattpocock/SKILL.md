@@ -45,13 +45,14 @@ and these Codex App tools, or their current equivalents:
 Discover skills from the project first, including `.agents/skills`, then from
 the user's global installation. Record each resolved absolute `SKILL.md` path;
 global installation is not required. Return `REQUIRED_SKILLS_UNAVAILABLE` with
-the missing names when any required skill is absent. Codex App tools may be
-deferred: when they are not initially exposed, call the top-level `tool_search`
-for the required App thread tools, then check again. Never infer their absence
-from `ALL_TOOLS` or `typeof tools[...]` inside `functions.exec`. Return
-`APP_THREADS_UNAVAILABLE` only when `tool_search` is itself unavailable or does
-not expose the required surface. Use that surface directly: this relay has no
-plugin MCP, collaboration subagent, or `codex exec` execution branch.
+the missing names when any required skill is absent. Codex App thread tools are
+injected directly by Codex Desktop; they are not connector tools and
+`tool_search` cannot load them. Check the callable tool surface, including
+`ALL_TOOLS` when using `functions.exec`, and use the exposed App tools directly.
+If any required App tool is absent, stop with `APP_THREADS_UNAVAILABLE` and
+`ACTION: START_OR_FORK_FRESH_CODEX_THREAD`. A task can retain an older tool
+surface across turns, and a skill cannot repair it. Do not retry in that task.
+This relay has no plugin MCP, collaboration subagent, or `codex exec` branch.
 
 Use `codex_app__list_projects` to resolve the current project. Match its
 canonical working directory and host; ask the user only if more than one match
