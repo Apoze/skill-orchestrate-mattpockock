@@ -150,8 +150,16 @@ for subsequent waits. While the child is active, inspect only the compact
 thread/turn status returned by `wait_threads`; ignore commentary, emit no
 progress summaries, and do not call `read_thread`. On timeout, wait again.
 Never end the relay turn while the recorded child is active. When the child
-completes or needs attention, read only its latest final answer with
-`codex_app__read_thread`.
+completes, read only its latest final answer with `codex_app__read_thread`.
+
+Treat `needs-attention` only as a wake signal, never as proof that the user must
+act. Read only the latest turn and stop only when it contains a visible,
+unresolved approval or user-input request addressed to the user. Do not infer a
+request from a status label, reasoning, commentary, tool invocation, or
+transient tool confirmation. Report an explicit request verbatim without
+inventing instructions. If there is no explicit request and no terminal block,
+keep the recorded child and cursor, emit no progress message, and wait another
+three minutes.
 
 Treat `No Codex thread found` during wait or read as a transient host-binding
 error, not as a ticket result. Retry `read_thread` once without `hostId`; if it
@@ -170,9 +178,10 @@ Accept a ticket only when the terminal block is unique and all of these hold:
 On acceptance, record the commit in the relay conversation, recompute the
 frontier from the recorded results, and launch the next ticket.
 
-On `BLOCKED`, `FAILED`, a needs-attention state, an invalid block, or an
-unrecovered App error, stop the relay. Report the ticket, terminal result, and
-`codex://threads/<thread-id>`. Perform no independent verification or repair.
+On `BLOCKED`, `FAILED`, an explicit unresolved user request, an invalid terminal
+block, or an unrecovered App error, stop the relay. Report only the observed
+ticket result or exact request and `codex://threads/<thread-id>`. Perform no
+independent verification or repair.
 
 When the user invokes the relay again in the same conversation, resume the
 recorded active child before creating anything. Completed child threads remain
