@@ -50,26 +50,70 @@ target and accounting for its ready child tickets.
 ## 2. Require the execution surface
 
 Require the installed `$implement`, `$ponytail`, and `$code-structure` skills
-and these Codex App tools, or their current equivalents:
-
-- `codex_app__list_projects`
-- `codex_app__list_threads`
-- `codex_app__create_thread`
-- `codex_app__wait_threads`
-- `codex_app__read_thread`
-- `codex_app__set_thread_title`
+and the Codex App tools named by the preflight below.
 
 Discover skills from the project first, including `.agents/skills`, then from
 the user's global installation. Record each resolved absolute `SKILL.md` path;
 global installation is not required. Return `REQUIRED_SKILLS_UNAVAILABLE` with
-the missing names when any required skill is absent. Codex App thread tools are
-injected directly by Codex Desktop; they are not connector tools and
-`tool_search` cannot load them. Check the callable tool surface, including
-`ALL_TOOLS` when using `functions.exec`, and use the exposed App tools directly.
-If any required App tool is absent, stop with `APP_THREADS_UNAVAILABLE` and
-`ACTION: START_OR_FORK_FRESH_CODEX_THREAD`. A task can retain an older tool
-surface across turns, and a skill cannot repair it. Do not retry in that task.
-This relay has no plugin MCP, collaboration subagent, or `codex exec` branch.
+the missing names when any required skill is absent.
+
+Run this read-only App Threads preflight in one `functions.exec` call before
+resolving the App project or launching a ticket. Use the exact prefixed names;
+`ALL_TOOLS` and `typeof` prove discovery only, while the four calls prove the
+read-only handlers are registered:
+
+```js
+const required = [
+  "codex_app__list_projects",
+  "codex_app__list_threads",
+  "codex_app__create_thread",
+  "codex_app__wait_threads",
+  "codex_app__read_thread",
+  "codex_app__set_thread_title",
+];
+const missing = required.filter(name =>
+  !ALL_TOOLS.some(tool => tool.name === name) || typeof tools[name] !== "function");
+if (missing.length) throw new Error(`missing handlers: ${missing.join(", ")}`);
+
+const decode = value => {
+  if (typeof value === "string" &&
+      value.includes("No handler registered for tool:")) throw new Error(value);
+  return typeof value === "string" ? JSON.parse(value) : value;
+};
+const projects = decode(await tools.codex_app__list_projects({}));
+const listed = decode(await tools.codex_app__list_threads({limit: 10}));
+
+const sample = listed?.threads?.find(thread => thread.kind === "codex" && thread.id);
+if (!Array.isArray(projects?.projects) || !sample)
+  throw new Error("invalid App Threads preflight response");
+const target = sample.hostId
+  ? {threadId: sample.id, hostId: sample.hostId}
+  : {threadId: sample.id};
+const read = decode(await tools.codex_app__read_thread({...target, turnLimit: 1}));
+const waitedRaw = await tools.codex_app__wait_threads({targets: [target], timeoutMs: 0});
+if (!read?.thread?.id)
+  throw new Error("invalid read_thread preflight response");
+if (!(typeof waitedRaw === "string" &&
+      waitedRaw.includes("cannot wait on the calling thread")))
+  decode(waitedRaw);
+text("APP_THREADS_PREFLIGHT_OK");
+```
+
+Complete the preflight only on `APP_THREADS_PREFLIGHT_OK`. On a missing tool,
+returned handler error, thrown call, or malformed response, stop with the exact
+error, `APP_THREADS_UNAVAILABLE`, and
+`ACTION: START_OR_FORK_FRESH_CODEX_THREAD`. A fulfilled promise containing
+`No handler registered for tool: ...` is a failure. A task can retain a broken
+handler surface across turns; continue only in a fresh or forked task.
+The read-only `wait_threads` probe may reject waiting on its calling task; that
+domain response still proves its handler is registered.
+`create_thread` and `set_thread_title` remain type-checked because trial calls
+would mutate App state. If the real `create_thread` call returns the handler
+error, no child was created: stop immediately with the same unavailable result.
+
+Codex Desktop injects these tools directly. They are not connector tools and
+`tool_search` cannot load them. This relay has no plugin MCP, collaboration
+subagent, or `codex exec` branch.
 
 Use `codex_app__list_projects` to resolve the current project. Match its
 canonical working directory and host; ask the user only if more than one match
