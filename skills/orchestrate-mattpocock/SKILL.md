@@ -205,13 +205,22 @@ inventing instructions. If there is no explicit request and no terminal block,
 keep the recorded child and cursor, emit no progress message, and wait another
 three minutes.
 
-Treat `No Codex thread found` during wait or read as a transient host-binding
-error, not as a ticket result. Retry `read_thread` once without `hostId`; if it
-still fails, list recent threads and rebind the exact thread identifier, or the
-single candidate matching the working directory, source thread, and ticket
-reference. Retry this recovery at most three consecutive times. Stop only when
-all attempts fail, and never launch the next ticket while the result is
-unknown.
+After a child identifier is recorded, treat any wait, read, or host-binding
+lookup failure as `UNKNOWN`, not as a ticket result. Do not retry in a burst or
+end the relay. Preserve that child's identifier and cursor, wait three minutes,
+then make one compact recovery attempt: read without `hostId`; if needed, list
+recent threads and rebind the exact identifier, or the single candidate
+matching the working directory, source thread, and ticket reference. If the
+child is still unknown, wait another three minutes before trying again. Never
+create a replacement or launch the next ticket while its result is unknown.
+
+This recovery is a fallback scoped only to that recorded child. As soon as its
+terminal result is observed, discard its recovery state, cursor, recovered host
+binding, and retry history. For every next ticket, resume the normal flow:
+resolve the App project again, create one fresh thread through the standard
+Section 3 path, record its returned identifiers, then wait normally. Do not
+preemptively probe or rebind a newly created child unless its own normal wait or
+read actually fails.
 
 Accept a ticket only when the terminal block is unique and all of these hold:
 
