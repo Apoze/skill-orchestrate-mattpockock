@@ -1,163 +1,116 @@
 ---
 name: orchestrate-mattpocock
-description: Orchestrate Matt Pocock implementation tickets sequentially in fresh Codex App threads.
+description: Relay Matt Pocock implementation tickets sequentially, each in a fresh top-level Codex session. Use when the user explicitly asks to orchestrate or continue tickets produced by to-tickets from local Markdown or GitHub, in ChatGPT Desktop on macOS/Windows or Codex CLI on Linux.
 ---
 
 # Orchestrate Matt Pocock tickets
 
-Run the implementation frontier as a **relay**: one ticket, one fresh top-level
-thread, one trusted terminal result.
+Run a **relay**: one ready ticket, one fresh top-level implementer, one trusted
+terminal result. Keep the orchestrator on the control plane; inspect neither
+code nor tests.
 
 ## 1. Build the queue
 
 1. Read the repository-root `AGENTS.md` or `CLAUDE.md`, then
-   `docs/agents/issue-tracker.md`. Treat these files as the authority for the
-   tracker kind and target.
-2. Resolve the ticket set from the user's argument, the current `/to-tickets`
+   `docs/agents/issue-tracker.md`. Treat them as the authority for the tracker
+   kind and target.
+2. Resolve tickets from the user's argument, the current `/to-tickets`
    context, or the single unambiguous ready set:
-   - use `.scratch/<feature>/issues/` only when the tracker document explicitly
-     configures local Markdown;
-   - for GitHub, resolve the exact `owner/repo` from an explicit ticket URL or
-     repository named in the user context, `AGENTS.md`, `CLAUDE.md`, or the
-     tracker document. Otherwise inspect Git remotes, preferring
-     `remote.pushDefault`, then a branch `pushRemote`, then `origin`, then the
-     sole GitHub remote. Ask when multiple candidates remain;
-   - pass `--repo <owner/repo>` to every `gh issue` or `gh api` read. Never rely
-     on `gh`'s default repository or on `gh repo view` without `--repo`: a fork
-     may track an upstream remote whose issue list is unrelated;
-   - list the configured GitHub repository's ready issues and resolve child
-     ticket groups from their `Parent` references or native sub-issue links.
-     Do not include a referenced parent spec as an implementation ticket. If
-     exactly one ready child group exists, use it; ask when groups are
-     ambiguous. Use `Blocked by` references or native dependencies for edges.
-3. Record each ticket's identifier, title, full file path or canonical issue
-   URL, status,
-   and blocking edges.
-4. Treat only tickets explicitly closed/done, tickets completed by this relay,
-   and tickets the user explicitly says are complete as complete. Inspect no
-   code, diff, tests, or Git history to infer completion.
-5. Select ready tickets whose blockers are complete. Run one at a time; break
-   ties by ticket identifier or filename.
+   - For local Markdown, use `.scratch/<feature>/issues/` only when the tracker
+     document configures it.
+   - For GitHub, resolve the exact `owner/repo` from an explicit ticket URL,
+     repository guidance, or Git remotes. Prefer `remote.pushDefault`, the
+     branch `pushRemote`, `origin`, then the sole GitHub remote. Ask when
+     candidates remain ambiguous.
+   - Pass `--repo <owner/repo>` to every `gh issue` or `gh api` read. Resolve
+     child groups from `Parent` references or native sub-issues; exclude the
+     parent specification from implementation tickets.
+   - Build dependency edges from `Blocked by` references or native
+     dependencies.
+3. Record each ticket's identifier, title, canonical file path or issue URL,
+   status, and blockers.
+4. Count as complete only tickets explicitly closed/done, accepted by this
+   relay, or declared complete by the user. Do not infer completion from code,
+   diffs, tests, commits, or Git history.
+5. Select one ready ticket at a time. Break ties by identifier or filename.
 
-If several ticket sets are plausible, ask the user to select one. If the user
-supplies a starting ticket, accept their stated progress and begin there.
+Show the detected count and ordered queue before launch. Continue only when
+every selected reference resolves and every blocker names a known ticket. A
+user-supplied starting ticket overrides earlier progress.
 
-Show the detected count and ordered queue. Continue only when every selected
-ticket has a resolvable reference and every blocking edge names a known ticket.
-Report an empty queue only after querying the explicitly resolved tracker
-target and accounting for its ready child tickets.
+Completion criterion: the queue and dependency frontier are explicit and
+unambiguous.
 
-## 2. Require the execution surface
+## 2. Prepare each implementer
 
-Require the installed `$implement`, `$ponytail`, and `$code-structure` skills
-and the Codex App tools named by the preflight below.
+Resolve these skills project-first, including `.agents/skills`, then from the
+user's global installations:
 
-Discover skills from the project first, including `.agents/skills`, then from
-the user's global installation. Record each resolved absolute `SKILL.md` path;
-global installation is not required. Return `REQUIRED_SKILLS_UNAVAILABLE` with
-the missing names when any required skill is absent.
+- `implement`
+- `ponytail`
+- `code-structure`
 
-Run this read-only App Threads preflight in one `functions.exec` call before
-resolving the App project or launching a ticket. Use the exact prefixed names;
-`ALL_TOOLS` and `typeof` prove discovery only, while the four calls prove the
-read-only handlers are registered:
+Record each absolute `SKILL.md` path. Return
+`REQUIRED_SKILLS_UNAVAILABLE: <names>` when any is missing. Global installation
+is optional.
 
-```js
-const required = [
-  "codex_app__list_projects",
-  "codex_app__list_threads",
-  "codex_app__create_thread",
-  "codex_app__wait_threads",
-  "codex_app__read_thread",
-  "codex_app__set_thread_title",
-];
-const missing = required.filter(name =>
-  !ALL_TOOLS.some(tool => tool.name === name) || typeof tools[name] !== "function");
-if (missing.length) throw new Error(`missing handlers: ${missing.join(", ")}`);
+Record one stable `RELAY_SOURCE` for the whole run: use the current task URL or
+CLI session ID when available; otherwise generate a UUID and retain it in the
+orchestrator conversation. Use the same value in every child prompt.
 
-const decode = value => {
-  if (typeof value === "string" &&
-      value.includes("No handler registered for tool:")) throw new Error(value);
-  return typeof value === "string" ? JSON.parse(value) : value;
-};
-const projects = decode(await tools.codex_app__list_projects({}));
-const listed = decode(await tools.codex_app__list_threads({limit: 10}));
+Route the ticket from its text and acceptance criteria. Use
+`route-codex-task` when available, otherwise `high`. Stop on `SPEC_REQUIRED` or
+`SPLIT_REQUIRED`. Preserve the configured model; route only the reasoning
+effort.
 
-const sample = listed?.threads?.find(thread => thread.kind === "codex" && thread.id);
-if (!Array.isArray(projects?.projects) || !sample)
-  throw new Error("invalid App Threads preflight response");
-const target = sample.hostId
-  ? {threadId: sample.id, hostId: sample.hostId}
-  : {threadId: sample.id};
-const read = decode(await tools.codex_app__read_thread({...target, turnLimit: 1}));
-const waitedRaw = await tools.codex_app__wait_threads({targets: [target], timeoutMs: 0});
-if (!read?.thread?.id)
-  throw new Error("invalid read_thread preflight response");
-if (!(typeof waitedRaw === "string" &&
-      waitedRaw.includes("cannot wait on the calling thread")))
-  decode(waitedRaw);
-text("APP_THREADS_PREFLIGHT_OK");
-```
+Completion criterion: the ticket, three required skill paths, and safe effort
+are resolved before any child is created.
 
-Complete the preflight only on `APP_THREADS_PREFLIGHT_OK`. On a missing tool,
-returned handler error, thrown call, or malformed response, stop with the exact
-error, `APP_THREADS_UNAVAILABLE`, and
-`ACTION: START_OR_FORK_FRESH_CODEX_THREAD`. A fulfilled promise containing
-`No handler registered for tool: ...` is a failure. A task can retain a broken
-handler surface across turns; continue only in a fresh or forked task.
-The read-only `wait_threads` probe may reject waiting on its calling task; that
-domain response still proves its handler is registered.
-`create_thread` and `set_thread_title` remain type-checked because trial calls
-would mutate App state. If the real `create_thread` call returns the handler
-error, no child was created: stop immediately with the same unavailable result.
+## 3. Select exactly one Codex surface
 
-Codex Desktop injects these tools directly. They are not connector tools and
-`tool_search` cannot load them. This relay has no plugin MCP, collaboration
-subagent, or `codex exec` branch.
+Choose by capability, not by the checkout's operating system:
 
-Use `codex_app__list_projects` to resolve the current project. Match its
-canonical working directory and host; ask the user only if more than one match
-remains. Every child uses this project with `environment.type: local`, so
-sequential tickets share the same checkout.
+1. When Codex App thread handlers are exposed in ChatGPT Desktop, read and follow
+   [`references/desktop-app.md`](references/desktop-app.md). This branch has
+   priority, including a Desktop remote project hosted on Linux.
+2. Otherwise, only when the orchestrator itself runs in Codex CLI on Linux and
+   `codex exec --help` succeeds, read and follow
+   [`references/linux-cli.md`](references/linux-cli.md).
+3. Otherwise stop with `EXECUTION_SURFACE_UNAVAILABLE` and the failed
+   capability check.
 
-Resolve the project immediately before each launch. Do not persist a
-`projectId` in repository files: App project identifiers may become stale.
+On Desktop macOS/Windows, a broken App handler surface requires a fresh or
+forked Desktop task; it does not switch to CLI. Use the App's native thread
+tools there. On Linux CLI, use native `codex exec` sessions. Both branches use
+the same prompt and result contract below.
 
-## 3. Route and launch one ticket
+Completion criterion: exactly one surface reference is loaded and its
+preflight passes.
 
-Route the ticket from its text and acceptance criteria:
+## 4. Launch prompt
 
-- when `route-codex-task` is available, apply it to the DEV ticket and use its
-  effort;
-- otherwise use `high`;
-- stop on `SPEC_REQUIRED` or `SPLIT_REQUIRED`.
-
-Pass the effort as `thinking` to `codex_app__create_thread`. Preserve the
-configured model by omitting `model`.
-
-Create one top-level thread with this initial prompt, substituting the exact
-ticket values and resolved skill paths. Keep the explicit skill-link syntax
-produced by the Codex skill picker; do not replace it with `/implement` or a
-natural-language request:
+Create one top-level child with the routed effort and no model override. Use
+this exact structure, resolving every placeholder and preserving Codex's
+explicit skill-link syntax:
 
 ```text
 [$implement](<absolute implement SKILL.md path>) ticket <ticket identifier>
 
 Implement only this ticket:
 <ticket identifier> — <ticket title>
-<absolute ticket path or issue URL>
+<absolute ticket path or canonical issue URL>
 
-Follow the ticket, its linked spec, and the normal implement workflow.
+RELAY_SOURCE: <stable orchestrator task URL, CLI session id, or relay UUID>
+
+Follow the ticket, its linked specification, and the normal $implement workflow.
 
 Mandatory supporting skills:
 [$ponytail](<absolute ponytail SKILL.md path>)
 [$code-structure](<absolute code-structure SKILL.md path>)
 
-Follow ponytail throughout the implementation. Apply code-structure before
-deciding whether this ticket should introduce or refactor shared operational
-logic. Apply it only where appropriate; do not create an abstraction when its
-own rules say not to.
-If any required skill cannot be loaded, return BLOCKED.
+Follow ponytail throughout implementation. Apply code-structure before deciding
+whether this ticket should introduce or refactor shared operational logic. If a
+required skill cannot be loaded, return BLOCKED.
 
 Finish with exactly one terminal block:
 
@@ -167,78 +120,46 @@ COMMIT: <commit sha or NONE>
 SUMMARY: <one concise line>
 
 Use PASS only after the normal $implement workflow completed and committed the
-ticket. Use BLOCKED when user input or an external prerequisite is required.
-Use FAILED when implementation or validation failed.
+ticket. Use BLOCKED for user input or an external prerequisite. Use FAILED for
+failed implementation or validation.
 ```
 
-Title the thread `Implement <identifier> — <title>`. Record its thread and host
-identifiers in the relay conversation before waiting. Never create a second
-thread for a ticket already recorded as active or complete.
+Title Desktop children `Implement <identifier> — <title>`. Keep completed
+children visible. Never create a replacement for an active or uncertain
+ticket.
 
-If creation times out, returns an App error, or does not return an identifier,
-treat the outcome as uncertain and never retry creation. Reconcile for up to
-three consecutive observations: list recent threads on the current host, then
-read candidates in the current working directory whose initial prompt contains
-the exact ticket reference and this relay's source thread. Repeat when no match
-is visible because App thread creation may appear after the error response.
-Resume the single match. If there is still no match after three observations,
-wait three minutes without creating anything, then reconcile once more. Stop
-only if that final observation has no match, or if more than one match appears.
-A title or later App error must not discard an already recorded child
-identifier.
+## 5. Relay terminal results
 
-## 4. Relay the terminal result
+Track only these states in the orchestrator conversation:
 
-Wait with `codex_app__wait_threads` using a three-minute timeout and its cursor
-for subsequent waits. While the child is active, inspect only the compact
-thread/turn status returned by `wait_threads`; ignore commentary, emit no
-progress summaries, and do not call `read_thread`. On timeout, wait again.
-Never end the relay turn while the recorded child is active. When the child
-completes, read only its latest final answer with `codex_app__read_thread`.
+- `READY`: no child launch has been attempted for the ticket.
+- `CREATION_UNKNOWN`: launch may have created a child, but no identifier was
+  returned.
+- `ACTIVE`: one child identifier is recorded.
+- `CHILD_UNKNOWN`: the recorded child temporarily cannot be observed.
+- `TERMINAL`: one final result was read.
 
-Treat `needs-attention` only as a wake signal, never as proof that the user must
-act. Read only the latest turn and stop only when it contains a visible,
-unresolved approval or user-input request addressed to the user. Do not infer a
-request from a status label, reasoning, commentary, tool invocation, or
-transient tool confirmation. Report an explicit request verbatim without
-inventing instructions. If there is no explicit request and no terminal block,
-keep the recorded child and cursor, emit no progress message, and wait another
-three minutes.
+Treat `CREATION_UNKNOWN` and `CHILD_UNKNOWN` as transport states, never ticket
+results. Follow the selected surface's recovery rules; creation is called at
+most once per ticket.
 
-After a child identifier is recorded, treat any wait, read, or host-binding
-lookup failure as `UNKNOWN`, not as a ticket result. Do not retry in a burst or
-end the relay. Preserve that child's identifier and cursor, wait three minutes,
-then make one compact recovery attempt: read without `hostId`; if needed, list
-recent threads and rebind the exact identifier, or the single candidate
-matching the working directory, source thread, and ticket reference. If the
-child is still unknown, wait another three minutes before trying again. Never
-create a replacement or launch the next ticket while its result is unknown.
-
-This recovery is a fallback scoped only to that recorded child. As soon as its
-terminal result is observed, discard its recovery state, cursor, recovered host
-binding, and retry history. For every next ticket, resume the normal flow:
-resolve the App project again, create one fresh thread through the standard
-Section 3 path, record its returned identifiers, then wait normally. Do not
-preemptively probe or rebind a newly created child unless its own normal wait or
-read actually fails.
-
-Accept a ticket only when the terminal block is unique and all of these hold:
+Accept a ticket only when its latest final answer contains one unique terminal
+block and all of these hold:
 
 - `IMPLEMENT_RESULT` is exactly `PASS`;
 - `TICKET` matches the launched ticket;
-- `COMMIT` is neither missing nor `NONE`.
+- `COMMIT` is present and not `NONE`.
 
-On acceptance, record the commit in the relay conversation, recompute the
-frontier from the recorded results, and launch the next ticket.
+On acceptance, record the ticket, child/session URL or ID, and commit; recompute
+the frontier; then launch the next ticket through the surface's normal fresh
+creation path. Reset all recovery state between tickets.
 
-On `BLOCKED`, `FAILED`, an explicit unresolved user request, an invalid terminal
-block, or an unrecovered App error, stop the relay. Report only the observed
-ticket result or exact request and `codex://threads/<thread-id>`. Perform no
-independent verification or repair.
+Stop on `BLOCKED`, `FAILED`, an explicit unresolved request to the user, an
+invalid terminal block, or exhausted transport recovery. Report only the
+observed result or exact request and the child/session identifier. Perform no
+independent code read, test, review, repair, or tracker mutation.
 
-When the user invokes the relay again in the same conversation, resume the
-recorded active child before creating anything. Completed child threads remain
-visible and unarchived.
-
-Finish when every selected ticket has an accepted `PASS`. Return the ordered
-ticket, thread, and commit list.
+When reinvoked in the same orchestrator conversation, resume its recorded
+active child before creating anything. Finish only after every selected ticket
+has an accepted `PASS`, then return the ordered ticket, child/session, and
+commit list.

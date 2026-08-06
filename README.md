@@ -1,16 +1,21 @@
 # Orchestrate Matt Pocock
 
 Runs tickets produced by Matt Pocock's `/to-tickets` sequentially. Each ticket
-gets a fresh top-level Codex App thread running `$implement`; the orchestrator
-continues only after the implementer reports a committed `PASS`.
+gets a fresh top-level Codex session running `$implement`; the relay continues
+only after the implementer reports a committed `PASS`.
 
 ## Requirements
 
-- Codex App with top-level thread tools
+- ChatGPT Desktop on macOS/Windows with native Codex top-level task tools, or
+  Codex CLI on Linux with working `codex exec`
 - Matt Pocock's `implement` skill
+- `ponytail` and `code-structure`
 - `route-codex-task` is optional; without it, implementers use `high`
 
 This skill does not depend on `codex-project-orchestrator`.
+It uses no plugin MCP or custom App Server client.
+Linux CLI sessions remain available through `codex resume`; they do not appear
+as Desktop sidebar tasks.
 
 ## Install
 

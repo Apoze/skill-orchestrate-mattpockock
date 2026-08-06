@@ -1,6 +1,6 @@
 interface:
   display_name: "Orchestrate Matt Pocock"
-  short_description: "Run Matt Pocock tickets in fresh threads"
-  default_prompt: "Use $orchestrate-mattpocock to run the ready tickets sequentially in fresh Codex App threads."
+  short_description: "Relay tickets through fresh Codex sessions"
+  default_prompt: "Use $orchestrate-mattpocock to run the ready tickets sequentially in fresh Codex sessions."
 policy:
   allow_implicit_invocation: false
